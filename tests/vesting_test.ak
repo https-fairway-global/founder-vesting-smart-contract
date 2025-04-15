@@ -1,13 +1,19 @@
-// tests/vesting_test.ak
-use fairway/vesting/validators/vesting.{VestingDatum, vesting, Claim, Refund} // Import types and validator
-
-use aiken/transaction.{Input, InlineDatum, NoDatum, Output, OutputReference, Transaction, placeholder as tx_placeholder}
 use aiken/crypto.{VerificationKeyHash}
 use aiken/interval
 use aiken/option.{Some}
-use aiken/test
-use cardano/address.{Address, VerificationKey, ScriptCredential} // Need Address constructors
-use cardano/assets.{Value, add, from_lovelace, quantity_of} // Need asset functions
+// Import types and validator
+
+use aiken/transaction.{
+  InlineDatum, Input, NoDatum, Output, OutputReference, Transaction,
+  placeholder as tx_placeholder,
+}
+use cardano/address.{Address, ScriptCredential, VerificationKey}
+// Need Address constructors
+use cardano/assets.{Value, add, from_lovelace, quantity_of}
+// tests/vesting_test.ak
+use fairway/vesting/validators/vesting.{Claim, Refund, VestingDatum, vesting}
+
+// Need asset functions
 
 // --- Helper Functions for Test Data ---
 
@@ -24,15 +30,19 @@ fn mock_policy_id() -> ByteArray {
 }
 
 fn mock_asset_name() -> ByteArray {
-  #"56657374696e67546f6b656e" // "VestingToken" hex encoded
+  #"56657374696e67546f6b656e"
+  // "VestingToken" hex encoded
 }
 
 fn mock_output_ref(ix: Int) -> OutputReference {
-  OutputReference { transaction_id: #"ref_tx_id___________________________________________", output_index: ix }
+  OutputReference {
+    transaction_id: #"0000000000000000000000000000000000000000000000000000000000000000",
+    output_index: ix,
+  }
 }
 
 fn mock_script_hash() -> ByteArray {
-  #"script_hash_________________________________________"
+  #"11111111111111111111111111111111111111111111111111111111"
 }
 
 fn mock_script_address() -> Address {
@@ -58,7 +68,7 @@ fn create_input(
 ) -> Input {
   Input {
     output_reference: ref,
-    output: Output { address: address, value: value, datum: datum, reference_script: None },
+    output: Output { address, value, datum, reference_script: None },
   }
 }
 
@@ -76,12 +86,10 @@ fn add_output(
 ) -> Transaction {
   Transaction {
     ..tx,
-    outputs: [Output {
-      address: address,
-      value: value,
-      datum: datum,
-      reference_script: None,
-    }, ..tx.outputs],
+    outputs: [
+      Output { address, value, datum, reference_script: None },
+      ..tx.outputs
+    ],
   }
 }
 
@@ -92,24 +100,28 @@ test handle_claim_success_after_cliff() {
   let start = 1000
   let cliff = 2000
   let end = 3000
-  let current_time = 2500 // After cliff, before end
+  let current_time = 2500
+  // After cliff, before end
   let total_qty = 1000
-  let initial_lovelace = 2_000_000 // Ada locked with the token
+  let initial_lovelace = 2_000_000
+  // Ada locked with the token
   let claimed_qty = 0
-  let amount_to_claim = 500 // Should be vested: 750 available
+  let amount_to_claim = 500
 
+  // Should be vested: 750 available
   let owner = mock_owner_hash()
   let beneficiary = mock_beneficiary_hash()
   let policy = mock_policy_id()
   let asset = mock_asset_name()
-  let own_ref = mock_output_ref(0) // UTxO being spent
+  let own_ref = mock_output_ref(0)
+  // UTxO being spent
   let script_address = mock_script_address()
   let beneficiary_address = Address(VerificationKey(beneficiary), None)
 
   let input_datum =
     VestingDatum {
-      owner: owner,
-      beneficiary: beneficiary,
+      owner,
+      beneficiary,
       start_time: start,
       cliff_date: cliff,
       end_date: end,
@@ -117,19 +129,33 @@ test handle_claim_success_after_cliff() {
       claimed_quantity: claimed_qty,
     }
 
-  let input_value = from_lovelace(initial_lovelace) |> add(policy, asset, total_qty)
+  let input_value =
+    from_lovelace(initial_lovelace) |> add(policy, asset, total_qty)
 
   // Input being spent by the script
-  let script_input = create_input(own_ref, script_address, input_value, InlineDatum(input_datum))
+  let script_input =
+    create_input(own_ref, script_address, input_value, InlineDatum(input_datum))
 
   // Output paying the beneficiary
-  let beneficiary_payment = from_lovelace(1_000_000) |> add(policy, asset, amount_to_claim)
+  let beneficiary_payment =
+    from_lovelace(1_000_000) |> add(policy, asset, amount_to_claim)
 
   // Updated datum for the continuing output
-  let output_datum = { ...input_datum, claimed_quantity: claimed_qty + amount_to_claim }
+  let output_datum =
+    VestingDatum {
+      owner: input_datum.owner,
+      beneficiary: input_datum.beneficiary,
+      start_time: input_datum.start_time,
+      cliff_date: input_datum.cliff_date,
+      end_date: input_datum.end_date,
+      total_vesting_quantity: input_datum.total_vesting_quantity,
+      claimed_quantity: claimed_qty + amount_to_claim,
+    }
 
   // Remaining value for the continuing output
-  let remaining_value = from_lovelace(initial_lovelace) |> add(policy, asset, total_qty - amount_to_claim)
+  let remaining_value =
+    from_lovelace(initial_lovelace)
+      |> add(policy, asset, total_qty - amount_to_claim)
 
   // Construct the transaction
   let tx =
@@ -144,7 +170,7 @@ test handle_claim_success_after_cliff() {
   // Parameters are passed first when calling the handler directly
   vesting(policy, asset).spend(
     Some(input_datum),
-    Claim { amount_to_claim: amount_to_claim },
+    Claim { amount_to_claim },
     own_ref,
     tx,
   )
@@ -154,7 +180,8 @@ test handle_claim_success_after_cliff() {
 test handle_claim_fail_before_cliff() {
   let start = 1000
   let cliff = 2000
-  let current_time = 1500 // Before cliff
+  let current_time = 1500
+  // Before cliff
   let policy = mock_policy_id()
   let asset = mock_asset_name()
   let own_ref = mock_output_ref(0)
@@ -163,7 +190,7 @@ test handle_claim_fail_before_cliff() {
   let input_datum =
     VestingDatum {
       owner: mock_owner_hash(),
-      beneficiary: beneficiary,
+      beneficiary,
       start_time: start,
       cliff_date: cliff,
       end_date: 3000,
@@ -180,10 +207,10 @@ test handle_claim_fail_before_cliff() {
   // Expect the call to fail (return False)
   !vesting(policy, asset).spend(
     Some(input_datum),
-    Claim { amount_to_claim: 100 }, // Amount doesn't matter, time check fails
+    Claim { amount_to_claim: 100 },
+    // Amount doesn't matter, time check fails
     own_ref,
     tx,
   )
 }
-
 // TODO: Add helpers for adding inputs/outputs if needed 
