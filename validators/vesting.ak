@@ -2,9 +2,8 @@ use aiken/collection/list
 use aiken/crypto.{VerificationKeyHash}
 use aiken/interval.{Finite, Interval}
 // Import Interval for ValidityRange
-use aiken/option
 use cardano/address.{Address, VerificationKey}
-use cardano/assets.{AssetName, PolicyId, Value, quantity_of}
+use cardano/assets.{AssetName, PolicyId, quantity_of}
 use cardano/transaction.{DatumHash, InlineDatum, Input, NoDatum, Output, OutputReference, ScriptPurpose, Transaction}
 
 // --- Datum and Redeemer Definitions for Linear Vesting ---
