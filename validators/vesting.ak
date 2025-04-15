@@ -182,19 +182,16 @@ fn handle_claim(
     when self.validity_range.lower_bound.bound_type is {
       Finite(t) -> t
       // Must have a finite lower bound
-      _ -> fail @"Transaction validity range must have a lower bound"
+      _ -> fail
     }
 
   // --- Basic Claim Rule Checks ---
   // 1. Claim amount must be positive.
   expect amount_to_claim > 0
-  @"Claim amount must be positive"
   // 2. Transaction must be signed by the beneficiary.
   expect list.has(self.extra_signatories, datum.beneficiary)
-  @"Beneficiary signature missing"
   // 3. Claim can only happen after the cliff date.
   expect current_time >= datum.cliff_date
-  @"Cannot claim before cliff date"
 
   // --- Calculate Withdrawable Amount ---
   // Calculate total vested based on current time.
@@ -203,12 +200,9 @@ fn handle_claim(
   let max_withdrawable_now = total_vested_now - datum.claimed_quantity
   // 4. Cannot claim more than the currently withdrawable amount.
   expect amount_to_claim <= max_withdrawable_now
-  @"Claim amount exceeds vested amount"
 
   // --- Validate Input UTxO ---
-  // Ensure the input UTxO being spent is found in the transaction.
   expect Some(own_input) = find_own_input(self, own_ref)
-  @"Could not find own input UTxO"
 
   // --- Validate Output Payments & State Continuation ---
   // 5. Ensure the beneficiary is paid at least the claimed amount.
@@ -221,11 +215,9 @@ fn handle_claim(
       master_token_name,
     )
   expect paid_to_beneficiary >= amount_to_claim
-  @"Incorrect amount paid to beneficiary"
 
   // 6. Ensure the script UTxO is continued correctly.
   expect Some(continuing_output) = find_continuing_output(self, own_ref)
-  @"Continuing script output not found"
 
   // 7. Ensure the correct remaining token quantity is sent back to the script.
   let input_value = own_input.output.value
@@ -236,15 +228,12 @@ fn handle_claim(
     quantity_of(continuing_output.value, master_token_policy, master_token_name)
   // Use >= to allow for potential fees paid from the script UTxO if needed, though typically handled by collateral.
   expect output_token_quantity >= expected_remaining_quantity
-  @"Incorrect remaining token quantity in script output"
 
   // 8. Ensure the datum in the continuing output is correctly updated.
   let output_datum: VestingDatum =
     when continuing_output.datum is {
-      // Expecting inline datum containing VestingDatum structure.
       InlineDatum(generic_data) -> {
         expect casted_datum: VestingDatum = generic_data
-        @"Output datum has incorrect type"
         casted_datum
       }
       DatumHash(_) -> fail @"Expected inline datum, found hash"
@@ -252,21 +241,14 @@ fn handle_claim(
     }
   // Check immutable fields.
   expect output_datum.owner == datum.owner
-  @"Output datum owner mismatch"
   expect output_datum.beneficiary == datum.beneficiary
-  @"Output datum beneficiary mismatch"
   expect output_datum.start_time == datum.start_time
-  @"Output datum start_time mismatch"
   expect output_datum.cliff_date == datum.cliff_date
-  @"Output datum cliff_date mismatch"
   expect output_datum.end_date == datum.end_date
-  @"Output datum end_date mismatch"
   expect output_datum.total_vesting_quantity == datum.total_vesting_quantity
-  @"Output datum total_vesting_quantity mismatch"
   // Check updated claimed quantity.
   expect
     output_datum.claimed_quantity == datum.claimed_quantity + amount_to_claim
-  @"Output datum claimed_quantity not updated correctly"
 
   // All checks passed.
   True
@@ -285,21 +267,19 @@ fn handle_refund(
     when self.validity_range.lower_bound.bound_type is {
       Finite(t) -> t
       // Must have a finite lower bound
-      _ -> fail @"Transaction validity range must have a lower bound"
+      _ -> fail
     }
 
   // --- Basic Refund Rule Checks ---
   // 1. Transaction must be signed by the owner.
   expect list.has(self.extra_signatories, datum.owner)
-  @"Owner signature missing"
   // 2. Refund can only happen before the vesting period starts.
   expect current_time < datum.start_time
-  @"Cannot refund after vesting start time"
 
   // --- Validate Input & Payment ---
   // Ensure the input UTxO being spent is found.
+  // Use 'expect' here as it's pattern matching on Option
   expect Some(own_input) = find_own_input(self, own_ref)
-  @"Could not find own input UTxO"
   // Calculate the total amount that should be in the UTxO (total locked - already claimed).
   let input_token_quantity =
     quantity_of(own_input.output.value, master_token_policy, master_token_name)
@@ -307,14 +287,12 @@ fn handle_refund(
     datum.total_vesting_quantity - datum.claimed_quantity
   // 3. Ensure the input contains exactly the expected amount to be refunded.
   expect input_token_quantity == expected_refund_amount
-  @"Input UTxO has incorrect token quantity for refund"
 
   // 4. Ensure the owner is paid back the full expected refund amount.
   let owner_address = Address(VerificationKey(datum.owner), None)
   let paid_to_owner =
     sum_sent_to(self, owner_address, master_token_policy, master_token_name)
   expect paid_to_owner >= expected_refund_amount
-  @"Incorrect amount paid to owner during refund"
 
   // All checks passed.
   True
