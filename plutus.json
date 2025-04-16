@@ -83,20 +83,24 @@
     },
     "vesting/Redeemer": {
       "title": "Redeemer",
+      "description": "Redeemer defining the action being performed on the vesting contract.",
       "anyOf": [
         {
           "title": "Claim",
+          "description": "Action for the beneficiary to claim vested tokens.",
           "dataType": "constructor",
           "index": 0,
           "fields": [
             {
               "title": "amount_to_claim",
+              "description": "The specific amount the beneficiary intends to claim in this transaction.",
               "$ref": "#/definitions/Int"
             }
           ]
         },
         {
           "title": "Refund",
+          "description": "Action for the owner to reclaim all remaining tokens before the vesting period starts.",
           "dataType": "constructor",
           "index": 1,
           "fields": []
@@ -105,6 +109,7 @@
     },
     "vesting/VestingDatum": {
       "title": "VestingDatum",
+      "description": "Datum stored with each vesting UTxO.\n Defines the vesting schedule, beneficiary, owner, and current state.",
       "anyOf": [
         {
           "title": "VestingDatum",
@@ -113,30 +118,37 @@
           "fields": [
             {
               "title": "owner",
+              "description": "Verification key hash of the wallet that initially locked the funds.\n Allowed to refund before vesting starts.",
               "$ref": "#/definitions/aiken~1crypto~1VerificationKeyHash"
             },
             {
               "title": "beneficiary",
+              "description": "Verification key hash of the wallet entitled to claim vested funds.",
               "$ref": "#/definitions/aiken~1crypto~1VerificationKeyHash"
             },
             {
               "title": "start_time",
+              "description": "The POSIX time (ms) when the vesting period begins.",
               "$ref": "#/definitions/Int"
             },
             {
               "title": "cliff_date",
+              "description": "The POSIX time (ms) after which the beneficiary can start claiming.\n Before this time, no funds are vested.",
               "$ref": "#/definitions/Int"
             },
             {
               "title": "end_date",
+              "description": "The POSIX time (ms) when all funds become fully vested.",
               "$ref": "#/definitions/Int"
             },
             {
               "title": "total_vesting_quantity",
+              "description": "The total amount of the master token locked in the vesting contract.",
               "$ref": "#/definitions/Int"
             },
             {
               "title": "claimed_quantity",
+              "description": "The amount of the master token already claimed by the beneficiary.",
               "$ref": "#/definitions/Int"
             }
           ]
